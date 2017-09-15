@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+#
+#
+
+package=`basename $0`
+
+function show_help {
+    echo "$package: send a notification using autoremote"
+    echo " "
+    echo "$package [options] text"
+    echo " "
+    echo "options:"
+    echo "-h, --help                show brief help"
+}
+
+function join_by { local IFS="$1"; shift; echo "$*"; }
+
+while test $# -gt 0; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+
+if [[ $# -le 0 ]] ; then
+    echo 'Error: Missing required argument text'
+    show_help
+    exit 1
+fi
+
+INSTANCE_NAME=`aws_get_tag Name`
+TITLE="AWS+EC2:+${INSTANCE_NAME// /+}"
+TEXT=${1// /+}
+
+KEY="XXX"
+SCHEME='https://'
+DOMAIN='autoremotejoaomgcd.appspot.com'
+PATH='/sendnotification'
+PARAMS=""\
+" key=$KEY"\
+" title=$TITLE"\
+" text=$TEXT"
+
+URL="${SCHEME}${DOMAIN}${PATH}?`join_by \& $PARAMS`"
+
+/usr/bin/curl --silent "$URL" > /dev/null

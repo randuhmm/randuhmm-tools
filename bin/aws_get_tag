@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#
+# Get the value of a tag for the currently running EC2 instance.
+#
+# This can be useful within bootstrapping scripts ("user-data").
+#
+# Note the EC2 instance needs to have an IAM role that lets it read tags.
+# The policy JSON for this looks like:
+#
+#    {
+#      "Version": "2012-10-17",
+#      "Statement": [
+#        {
+#          "Effect": "Allow",
+#          "Action": "ec2:DescribeTags",
+#          "Resource": "*"
+#        }
+#      ]
+#    }
+#
+# You will also need to have the AWS CLI installed (you could just do
+# 'apt-get install awscli' although you'll get an older version).
+#
+# apt-get update
+# apt-get install -y python-pip
+# pip install -U pip
+# pip install awscli
+#
+
+package=`basename $0`
+
+show_help () {
+    echo "$package: get a tag value for the current ec2 instance"
+    echo " "
+    echo "$package [options] tag_name"
+    echo " "
+    echo "options:"
+    echo "-h, --help                show brief help"
+}
+
+
+while test $# -gt 0; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+
+if [[ $# -le 0 ]] ; then
+    echo 'Error: Missing required argument tag_name'
+    show_help
+    exit 1
+fi
+
+KEY=$1
+INSTANCE_ID=$(ec2metadata --instance-id)
+REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | grep region | awk -F\" '{print $4}')
+
+aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$KEY" --region=$REGION --output=text | cut -f5
