@@ -7,10 +7,15 @@ package=`basename $0`
 function show_help {
     echo "$package: send a notification using autoremote"
     echo " "
-    echo "$package [options] text"
+    echo "$package [options] <title> <text>"
     echo " "
     echo "options:"
     echo "-h, --help                show brief help"
+    echo "-c, --config              configure autoremote settings"
+}
+
+function show_config {
+    echo "config!"
 }
 
 function join_by { local IFS="$1"; shift; echo "$*"; }
@@ -21,22 +26,29 @@ while test $# -gt 0; do
             show_help
             exit 0
             ;;
+        -c|--config)
+            show_config
+            exit 0
+            break
+            ;;
         *)
             break
             ;;
     esac
 done
 
-
 if [[ $# -le 0 ]] ; then
+    echo 'Error: Missing required argument title'
+    show_help
+    exit 1
+elif [[ $# -le 1 ]] ; then
     echo 'Error: Missing required argument text'
     show_help
     exit 1
 fi
 
-INSTANCE_NAME=`aws_get_tag Name`
-TITLE="AWS+EC2:+${INSTANCE_NAME// /+}"
-TEXT=${1// /+}
+TITLE="${1}"
+TEXT="${2// /+}"
 
 KEY="XXX"
 SCHEME='https://'

@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+#
+#
+# set -x
+
+package=`basename $0`
+
+declare config_file
+declare config_dir
+
+config_file=~/.rnd/config
+config_dir=$(dirname "$config_file")
+if [ ! -f "$config_file" ]; then
+    mkdir -p "$(dirname $config_file)"
+    touch "$config_file"
+fi
+
+config_keys=(
+    AUTOREMOTE_KEY
+    TEST_1
+    TEST_2
+)
+
+function show_help {
+    echo "$package: configure randuhmm-tools"
+    echo " "
+    echo "$package [options] <action> <key> [value]"
+    echo " "
+    echo "options:"
+    echo "-h, --help                show brief help"
+    echo "-f, --file=FILE           set the config filename to use, if not"
+    echo "                          specified, it will use the 'config' file"
+    echo "-p, --profile=PROFILE     the profile to use, if not specified it"
+    echo "                          will use the 'default' profile"
+    echo "-i, --interactive         run an interactive session"
+}
+
+function get_profile {
+    awk '/\[.+\]/ {f=0}; f; /\['${PROFILE}'\]/ {f=1}' "${config_file}"
+}
+
+function exclude_profile {
+    awk '/\[.+\]/ {f=1}; /\['${PROFILE}'\]/ {f=0} f' "${config_file}"
+}
+
+function run_get {
+    source <(get_profile)
+    echo ${!1}
+}
+
+function run_set {
+    # Check if we are in interactive mode
+    if [ $INTERACTIVE -eq 1 ] ; then
+        echo 'Error: interactive mode is not yet implemented'
+        show_help
+        exit 1
+    elif [[ $# -le 1 ]] ; then
+        echo 'Error: "value" is required when not in interactive mode'
+        show_help
+        exit 1
+    fi
+
+    source <(get_profile)
+    tmp_file=$(mktemp -p "$config_dir")
+    declare "$1=$2"
+    echo "[$PROFILE]" >> "$tmp_file"
+    for key in ${config_keys[@]}; do
+        if [ ! -z "$(echo ${!key})" ]; then
+            echo $key=$(echo ${!key}) >> "$tmp_file"
+        fi
+    done
+    exclude_profile >> "$tmp_file"
+    mv "$tmp_file" "$config_file"
+}
+
+
+INTERACTIVE=0
+PROFILE="default"
+
+while test $# -gt 0; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -i|--interactive)
+            INTERACTIVE=1
+            shift
+            break
+            ;;
+        -p)
+            shift
+            if test $# -gt 0; then
+                export PROFILE=$1
+            else
+                echo "Error: no profile specified"
+                show_help
+                exit 1
+            fi
+            shift
+            ;;
+        --profile*)
+            PROFILE=`echo $1 | sed -e 's/^[^=]*=//g'`
+            shift
+            break
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# Check for required parameters
+if [[ $# -le 0 ]] ; then
+    echo 'Error: missing required arguments, "action" and "key"'
+    show_help
+    exit 1
+fi
+
+if [ ! $1 = 'set' ] && [ ! $1 = 'get' ] ; then
+    echo 'Error: "action" may only be "set" or "get"'
+    show_help
+    exit 1
+fi
+
+if [[ $# -le 1 ]] ; then
+    echo 'Error: missing required argument, "key"'
+    show_help
+    exit 1
+fi
+
+if [ $1 = 'set' ] ; then
+    run_set $2 $3
+elif [ $1 = 'get' ] ; then
+    run_get $2
+fi
